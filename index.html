@@ -1,0 +1,881 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="theme-color" content="#0B1220">
+<title>¿Cómo se propaga un rumor en una red social?</title>
+<style>
+:root{
+  --bg:#0B1220; --panel:#111B2E; --panel2:#0D1526; --border:#24324D; --border-soft:#1C2942;
+  --text:#E7EEF9; --muted:#93A4BE; --muted2:#6C7E9B;
+  --blue:#4F8DF7; --blue-strong:#3778E8; --amber:#F5B23D; --red:#F2635F; --green:#35D39A;
+  --radius:14px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{
+  font-family:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  color:var(--text);
+  background:
+    radial-gradient(1100px 700px at 78% -12%, #1A2C4E 0%, rgba(26,44,78,0) 60%),
+    radial-gradient(900px 620px at -8% 108%, #142239 0%, rgba(20,34,57,0) 55%),
+    var(--bg);
+  min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1300px;margin:0 auto;padding:26px 18px 30px}
+.tag{display:inline-block;font-size:10.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#8FB0E8;background:rgba(79,141,247,.10);border:1px solid rgba(79,141,247,.35);padding:4px 11px;border-radius:999px;margin-bottom:12px}
+h1{margin:0 0 8px;font-size:clamp(21px,2.6vw,30px);font-weight:700;letter-spacing:-.02em;line-height:1.15}
+.subtitle{margin:0;color:var(--muted);font-size:clamp(13.5px,1.4vw,15.5px);line-height:1.55;max-width:78ch}
+.grid{display:grid;gap:16px;margin-top:22px;grid-template-columns:minmax(0,1fr);grid-template-areas:"network" "controls" "params" "stats" "chart" "explain"}
+.area-network{grid-area:network}.area-controls{grid-area:controls}.area-params{grid-area:params}.area-stats{grid-area:stats}.area-chart{grid-area:chart}.area-explain{grid-area:explain}
+@media(min-width:1020px){
+  .grid{grid-template-columns:365px minmax(0,1fr);grid-template-areas:"params network" "controls network" "stats stats" "chart chart" "explain explain"}
+  .wrap{padding:30px 24px 34px}
+}
+.card{background:linear-gradient(180deg,rgba(255,255,255,.025),rgba(255,255,255,0) 120px),var(--panel);border:1px solid var(--border-soft);border-radius:var(--radius);padding:16px 18px}
+.card-head{display:flex;justify-content:space-between;align-items:center;gap:10px;flex-wrap:wrap;padding:14px 18px 8px}
+.card-title{font-size:15.5px;margin:0;font-weight:700}
+.pill{font-size:11.5px;color:var(--muted);background:var(--panel2);border:1px solid var(--border-soft);border-radius:999px;padding:1px 8px;margin-left:6px;font-weight:600;vertical-align:1px}
+.head-right{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.kicker{font-size:11px;letter-spacing:.13em;text-transform:uppercase;color:var(--muted2);font-weight:700;margin:0 0 13px}
+.hidden{display:none!important}
+.mini{font-size:12px;color:var(--muted2);line-height:1.55;margin:10px 0 0}
+.hint{display:none;margin:12px 0 0;font-size:12.5px;font-weight:600;color:var(--amber);line-height:1.45}
+.hint.show{display:block}
+/* ---- red ---- */
+.area-network{display:flex;flex-direction:column;padding:0;overflow:hidden}
+.net-wrap{position:relative;height:410px;flex:none}
+@media(min-width:1020px){.net-wrap{flex:1;height:auto;min-height:520px}}
+.net-wrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.net-foot{border-top:1px solid var(--border-soft);padding:11px 18px}
+.legend{display:flex;flex-wrap:wrap;gap:7px 16px;align-items:center}
+.lg{display:inline-flex;align-items:center;gap:6px;font-size:12.3px;color:var(--muted)}
+.dot{width:9px;height:9px;border-radius:50%;display:inline-block;flex:none}
+.ring{width:11px;height:11px;border-radius:50%;border:2px dashed var(--amber);display:inline-block;flex:none}
+.chip{display:inline-flex;align-items:center;gap:7px;padding:5px 12px;border-radius:999px;border:1px solid var(--border);background:var(--panel2);font-size:12.3px;color:var(--muted);font-weight:600}
+.chip-dot{width:8px;height:8px;border-radius:50%;background:#93A4BE;flex:none}
+.chip.running .chip-dot{background:var(--green);animation:pulse 1.15s ease-in-out infinite}
+.chip.paused .chip-dot{background:var(--amber)}
+.chip.finished .chip-dot{background:var(--blue)}
+@keyframes pulse{50%{opacity:.3}}
+.badge{display:inline-flex;align-items:center;gap:6px;background:rgba(245,178,61,.12);border:1px solid rgba(245,178,61,.45);color:#F8CE8A;font-size:12px;font-weight:600;padding:5px 11px;border-radius:999px}
+.tooltip{position:absolute;pointer-events:none;background:rgba(12,20,36,.95);border:1px solid var(--border);color:var(--text);font-size:12px;font-weight:600;padding:5px 10px;border-radius:8px;white-space:nowrap;transform:translate(-50%,calc(-100% - 12px));z-index:5}
+/* ---- deslizadores ---- */
+.slider-row{margin-bottom:15px}
+.slider-top{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+.slider-top label{font-size:13.5px;font-weight:600}
+.slider-top output{font-size:12.5px;font-weight:700;color:var(--ac,var(--blue));font-variant-numeric:tabular-nums;background:rgba(255,255,255,.04);border:1px solid var(--border-soft);padding:2px 9px;border-radius:8px;white-space:nowrap}
+input[type=range]{-webkit-appearance:none;appearance:none;width:100%;height:6px;border-radius:999px;background:#263349;outline:none;cursor:pointer;margin:4px 0}
+input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:17px;height:17px;border-radius:50%;background:#F2F6FC;border:3px solid var(--ac,var(--blue));box-shadow:0 1px 5px rgba(0,0,0,.5);cursor:grab}
+input[type=range]::-webkit-slider-thumb:active{cursor:grabbing}
+input[type=range]::-moz-range-thumb{width:15px;height:15px;border-radius:50%;background:#F2F6FC;border:3px solid var(--ac,var(--blue));box-shadow:0 1px 5px rgba(0,0,0,.5)}
+input[type=range]::-moz-range-track{height:6px;border-radius:999px;background:transparent}
+input[type=range]:focus-visible{outline:2px solid var(--blue);outline-offset:3px}
+/* ---- botones ---- */
+.btns{display:flex;flex-wrap:wrap;gap:9px}
+.btn{display:inline-flex;align-items:center;gap:7px;padding:9px 14px;border-radius:10px;border:1px solid var(--border);background:#16233B;color:var(--text);font-size:13.5px;font-weight:600;cursor:pointer;font-family:inherit;transition:filter .15s,transform .06s,opacity .15s}
+.btn svg{flex:none}
+.btn:hover:not(:disabled){filter:brightness(1.18)}
+.btn:active:not(:disabled){transform:translateY(1px)}
+.btn:disabled{opacity:.38;cursor:not-allowed}
+.btn:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.btn-primary{background:var(--blue-strong);border-color:transparent;color:#fff}
+.btn-amber{background:var(--amber);border-color:transparent;color:#241800}
+.btn-amber:hover:not(:disabled){filter:brightness(1.06)}
+.btn-ghost{background:transparent;border-color:var(--border-soft);color:var(--muted)}
+.speed{display:flex;align-items:center;gap:10px;margin-top:14px;flex-wrap:wrap}
+.speed-label{font-size:12.5px;color:var(--muted);font-weight:600}
+.seg{display:inline-flex;border:1px solid var(--border);border-radius:9px;overflow:hidden}
+.seg button{padding:6px 11px;font-size:12.3px;font-weight:600;background:transparent;color:var(--muted);border:0;border-right:1px solid var(--border-soft);cursor:pointer;font-family:inherit}
+.seg button:last-child{border-right:0}
+.seg button.active{background:#20335A;color:var(--text)}
+/* ---- indicadores ---- */
+.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:11px}
+.stat{background:var(--panel2);border:1px solid var(--border-soft);border-radius:12px;padding:12px 14px}
+.stat-val{font-size:25px;font-weight:700;font-variant-numeric:tabular-nums;letter-spacing:-.01em;line-height:1.1}
+.stat-lbl{display:flex;align-items:center;gap:6px;font-size:12.3px;color:var(--muted);margin-top:5px}
+.stat-sub{font-size:11.3px;color:var(--muted2);margin-top:3px;font-variant-numeric:tabular-nums}
+/* ---- gráfico ---- */
+.chart-wrap{position:relative;height:250px}
+@media(min-width:1020px){.chart-wrap{height:280px}}
+.chart-wrap canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+/* ---- explicación ---- */
+.acc-btn{width:100%;display:flex;justify-content:space-between;align-items:center;gap:10px;background:transparent;border:0;color:var(--text);font-size:15.5px;font-weight:700;cursor:pointer;padding:0;font-family:inherit;text-align:left}
+.acc-btn:focus-visible{outline:2px solid var(--blue);outline-offset:3px;border-radius:6px}
+.acc-btn .chev{transition:transform .3s;flex:none;color:var(--muted)}
+.acc-btn.open .chev{transform:rotate(180deg)}
+.acc-body{max-height:0;overflow:hidden;transition:max-height .35s ease}
+.acc-inner{padding-top:14px;color:var(--muted);font-size:13.8px;line-height:1.68}
+.acc-inner h3{color:var(--text);font-size:13.8px;margin:18px 0 6px}
+.acc-inner p{margin:8px 0}
+.acc-inner ul{margin:6px 0 10px;padding-left:20px}
+.acc-inner li{margin:5px 0}
+.acc-inner strong{color:#D5E1F5}
+.warn{border-left:3px solid var(--amber);background:rgba(245,178,61,.07);padding:11px 15px;border-radius:0 10px 10px 0;margin-top:16px;color:#EAD2A6}
+.formula{background:#0D1526;border:1px solid var(--border-soft);padding:2px 8px;border-radius:7px;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.93em;color:#BFD3F0;white-space:nowrap}
+footer{margin-top:20px;color:var(--muted2);font-size:11.8px;text-align:center;line-height:1.6}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <span class="tag">Simulador educativo</span>
+  <h1>¿Cómo se propaga un rumor en una red social?</h1>
+  <p class="subtitle">Un modelo simplificado e interactivo para explorar cómo influyen en la difusión de información la estructura de la red, la verificación previa y la corrección de contenidos. Ajustá los parámetros, iniciá la simulación y, si querés, intervení activando una corrección.</p>
+</header>
+
+<main class="grid">
+
+  <section class="card area-network" aria-label="Red de usuarios">
+    <div class="card-head">
+      <h2 class="card-title">Red de usuarios<span class="pill">80</span></h2>
+      <div class="head-right">
+        <span id="corrBadge" class="badge hidden"></span>
+        <span id="statusChip" class="chip"><i id="statusDot" class="chip-dot"></i><span id="statusText">Sin iniciar</span></span>
+      </div>
+    </div>
+    <div class="net-wrap" id="netWrap">
+      <canvas id="netCanvas"></canvas>
+      <div id="tooltip" class="tooltip hidden"></div>
+    </div>
+    <div class="net-foot">
+      <div class="legend">
+        <span class="lg"><i class="dot" style="background:#9AA8BF"></i>No expuesto</span>
+        <span class="lg"><i class="dot" style="background:#F2635F"></i>Difusor</span>
+        <span class="lg"><i class="dot" style="background:#35D39A"></i>Verificado</span>
+        <span class="lg"><i class="ring"></i>Difusor inicial</span>
+      </div>
+    </div>
+  </section>
+
+  <section class="card area-controls" aria-label="Controles de ejecución">
+    <h2 class="kicker">Controles de ejecución</h2>
+    <div class="btns">
+      <button id="btnStart" class="btn btn-primary" type="button"><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Iniciar</button>
+      <button id="btnPause" class="btn" type="button" disabled><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M7 5h3.4v14H7zM13.6 5H17v14h-3.4z"/></svg>Pausar</button>
+      <button id="btnResume" class="btn" type="button" disabled><svg viewBox="0 0 24 24" width="13" height="13" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l10.5-6.5z"/></svg>Continuar</button>
+      <button id="btnReset" class="btn" type="button"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>Reiniciar</button>
+      <button id="btnNewNet" class="btn btn-ghost" type="button"><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/><line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/></svg>Nueva red</button>
+    </div>
+    <div class="speed">
+      <span class="speed-label">Velocidad</span>
+      <div class="seg" id="speedSeg" role="group" aria-label="Velocidad de la simulación">
+        <button type="button" data-ms="1200">Lenta</button>
+        <button type="button" data-ms="700" class="active">Normal</button>
+        <button type="button" data-ms="350">Rápida</button>
+        <button type="button" data-ms="150">Muy rápida</button>
+      </div>
+    </div>
+    <p class="mini">La red actual se conserva entre ejecuciones para poder comparar escenarios; «Nueva red» genera otra estructura y reinicia la ejecución en curso.</p>
+  </section>
+  <section class="card area-params" aria-label="Parámetros">
+    <h2 class="kicker">Parámetros</h2>
+    <div class="slider-row" style="--ac:#F2635F">
+      <div class="slider-top"><label for="sShare">Probabilidad de compartir</label><output id="oShare" for="sShare">70 %</output></div>
+      <input type="range" id="sShare" min="0" max="100" step="1" value="70">
+    </div>
+    <div class="slider-row" style="--ac:#35D39A">
+      <div class="slider-top"><label for="sVerify">Probabilidad de verificación</label><output id="oVerify" for="sVerify">20 %</output></div>
+      <input type="range" id="sVerify" min="0" max="100" step="1" value="20">
+    </div>
+    <div class="slider-row" style="--ac:#4F8DF7">
+      <div class="slider-top"><label for="sK">Conectividad</label><output id="oK" for="sK">4 contactos</output></div>
+      <input type="range" id="sK" min="2" max="10" step="1" value="4">
+    </div>
+    <div class="slider-row" style="--ac:#A78BFA">
+      <div class="slider-top"><label for="sSeeds">Difusores iniciales</label><output id="oSeeds" for="sSeeds">2 usuarios</output></div>
+      <input type="range" id="sSeeds" min="1" max="6" step="1" value="2">
+    </div>
+    <div class="slider-row" style="--ac:#F5B23D">
+      <div class="slider-top"><label for="sCorr">Alcance de la corrección</label><output id="oCorr" for="sCorr">50 %</output></div>
+      <input type="range" id="sCorr" min="0" max="100" step="1" value="50">
+    </div>
+    <button id="btnCorrect" class="btn btn-amber" type="button" disabled><svg viewBox="0 0 24 24" width="13" height="13" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 11.5l2 2 4-4"/></svg>Activar corrección</button>
+    <p class="mini">Puede activarse <strong>una sola vez por ejecución</strong>, mientras la simulación avanza o está en pausa: una proporción de los difusores actuales pasa a «Verificado». El alcance se toma del deslizador en el momento de activarla.</p>
+    <p id="paramHint" class="hint">Los nuevos valores se aplicarán al iniciar la próxima ejecución.</p>
+  </section>
+
+  <section class="card area-stats" aria-label="Indicadores">
+    <h2 class="kicker">Indicadores</h2>
+    <div class="stats">
+      <div class="stat"><div class="stat-val" id="stNoexp">80</div><div class="stat-lbl"><i class="dot" style="background:#9AA8BF"></i>No expuestos</div><div class="stat-sub" id="stNoexpPct">100 % de la red</div></div>
+      <div class="stat"><div class="stat-val" id="stDif">0</div><div class="stat-lbl"><i class="dot" style="background:#F2635F"></i>Difusores</div><div class="stat-sub" id="stDifPct">0 % de la red</div></div>
+      <div class="stat"><div class="stat-val" id="stVer">0</div><div class="stat-lbl"><i class="dot" style="background:#35D39A"></i>Verificados</div><div class="stat-sub" id="stVerPct">0 % de la red</div></div>
+      <div class="stat"><div class="stat-val" id="stExp">0 %</div><div class="stat-lbl">Recibieron el rumor</div><div class="stat-sub" id="stExpAbs">0 de 80 usuarios</div></div>
+      <div class="stat"><div class="stat-val" id="stStep">0</div><div class="stat-lbl">Pasos transcurridos</div><div class="stat-sub">límite automático: 200</div></div>
+    </div>
+  </section>
+
+  <section class="card area-chart" aria-label="Evolución por estado">
+    <div class="card-head" style="padding:0 0 8px">
+      <h2 class="card-title">Evolución por estado</h2>
+      <div class="legend">
+        <span class="lg"><i class="dot" style="background:#9AA8BF"></i>No expuestos</span>
+        <span class="lg"><i class="dot" style="background:#F2635F"></i>Difusores</span>
+        <span class="lg"><i class="dot" style="background:#35D39A"></i>Verificados</span>
+      </div>
+    </div>
+    <div class="chart-wrap" id="chartWrap"><canvas id="chartCanvas"></canvas></div>
+  </section>
+
+  <section class="card area-explain" aria-label="Explicación del modelo">
+    <button id="accBtn" class="acc-btn" type="button" aria-expanded="false">¿Cómo funciona este modelo?<svg class="chev" viewBox="0 0 24 24" width="17" height="17" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg></button>
+    <div id="accBody" class="acc-body"><div class="acc-inner">
+      <h3>Qué representa la red</h3>
+      <p>Cada círculo (nodo) es una persona usuaria y cada línea es un vínculo por el que puede circular información, por ejemplo una relación de amistad o de seguimiento. La red tiene <strong>80 usuarios</strong> y se genera al azar sin usuarios aislados, de modo que casi todos quedan conectados entre sí. La estructura se mantiene fija durante cada ejecución, para que puedas comparar escenarios sobre la misma red. El deslizador «<strong>Conectividad</strong>» ajusta el número promedio de contactos por usuario (de 2 a 10); si lo modificás, la red se regenera al iniciar la próxima ejecución. El botón «Nueva red» genera otra estructura distinta al instante.</p>
+      <h3>Los tres estados</h3>
+      <ul>
+        <li><strong style="color:#9AA8BF">No expuesto:</strong> todavía no recibió el rumor.</li>
+        <li><strong style="color:#F2635F">Difusor:</strong> recibió el rumor, no lo verificó y lo está compartiendo con sus contactos.</li>
+        <li><strong style="color:#35D39A">Verificado:</strong> recibió el rumor, lo verificó (o recibió una corrección) y <em>dejó de difundirlo</em>.</li>
+      </ul>
+      <h3>El punto de partida</h3>
+      <p>Al pulsar «Iniciar» se eligen al azar entre 1 y 6 usuarios —según el deslizador «Difusores iniciales»— y comienzan difundiendo el rumor. Se los identifica con un <strong style="color:#F5B23D">anillo ámbar punteado</strong> que se mantiene durante toda la ejecución. A partir de ahí, la propagación depende de esos orígenes, de las conexiones existentes y de los parámetros elegidos.</p>
+      <h3>Los parámetros</h3>
+      <ul>
+        <li><strong>Probabilidad de compartir:</strong> la chance de que un contacto que recibió el rumor (y no lo verificó) lo empiece a difundir.</li>
+        <li><strong>Probabilidad de verificación:</strong> la chance de que, al recibir el rumor, el contacto lo verifique y no lo difunda.</li>
+        <li><strong>Conectividad:</strong> el número promedio de contactos que tiene cada usuario en la red (de 2 a 10).</li>
+        <li><strong>Difusores iniciales:</strong> cuántos usuarios comienzan la ejecución ya difundiendo el rumor.</li>
+        <li><strong>Alcance de la corrección:</strong> la proporción de los difusores actuales que pasarán a «Verificado» cuando actives la intervención.</li>
+      </ul>
+      <p>Los valores se leen al pulsar «Iniciar»: si cambiás un deslizador durante una ejecución, el cambio se aplicará a la próxima (la interfaz te lo avisa).</p>
+      <h3>Qué ocurre en cada paso</h3>
+      <p>La simulación avanza en pasos discretos. En cada paso, cada difusor intenta transmitir el rumor <strong>una vez</strong> a cada uno de sus contactos que aún no fue expuesto. Cada intento tiene tres resultados posibles:</p>
+      <ul>
+        <li>Con probabilidad igual a la «Probabilidad de verificación», el contacto verifica la información antes de creerla: pasa a «Verificado» y no la difunde.</li>
+        <li>Si no la verifica, la comparte con probabilidad igual a la «Probabilidad de compartir». La probabilidad de que ese contacto se convierta en difusor es, entonces, la <em>probabilidad efectiva de difusión</em>.</li>
+        <li>Si el intento no prospera, el contacto permanece «No expuesto» y podrá recibir nuevos intentos en pasos posteriores.</li>
+      </ul>
+      <p>Quien se convierte en difusor recién empieza a transmitir en el paso siguiente, y nadie difunde dos veces el rumor a un contacto que ya lo recibió. La simulación se detiene sola cuando no quedan difusores, cuando ya no hay contactos alcanzables por exponer o al llegar a 200 pasos, e informa el motivo.</p>
+      <h3>Cómo se calcula la probabilidad efectiva de difusión</h3>
+      <p><span class="formula">P efectiva = P compartir × (1 − P verificación)</span>. Por ejemplo, con 70 % de probabilidad de compartir y 20 % de verificación: <span class="formula">0,70 × (1 − 0,20) = 0,56</span>, es decir, un <strong>56 %</strong> de chances de que cada intento convierta al contacto en difusor. A mayor verificación, menor difusión efectiva y más usuarios terminan en «Verificado».</p>
+      <h3>Cómo actúa la corrección</h3>
+      <p>El botón «<strong>Activar corrección</strong>» puede usarse una sola vez por ejecución, mientras la simulación avanza o está en pausa. Al activarlo, una proporción de los difusores actuales —la que indique «Alcance de la corrección» en ese momento, redondeada al entero más cercano— recibe la corrección y pasa a «Verificado». Como los verificados dejan de difundir, la corrección cierra rutas de propagación y frena el avance del rumor. En el gráfico, la intervención se marca con una línea punteada ámbar, y en la tarjeta de la red aparece la indicación del paso en que se activó.</p>
+      <h3>Por qué los resultados varían entre ejecuciones</h3>
+      <p>Hay azar en la elección de los difusores iniciales y en cada intento de transmisión: aunque uses exactamente los mismos parámetros, dos ejecuciones sobre la misma red pueden terminar de forma muy distinta. Si además cambiás la conectividad o generás una nueva red, cambia la estructura sobre la que se propaga el rumor. Para explorar tendencias conviene repetir varias veces cada escenario y comparar resultados, en lugar de sacar conclusiones de una sola corrida.</p>
+      <h3>Qué aspectos de la realidad no están representados</h3>
+      <ul>
+        <li>Los algoritmos de las plataformas, que deciden qué se muestra a cada persona y pueden amplificar un contenido mucho más allá de los contactos directos.</li>
+        <li>La viralidad masiva: aquí cada intento alcanza a un único contacto por vez, sin efectos multiplicadores de tendencias ni recomendaciones.</li>
+        <li>Las cuentas falsas, los bots y la coordinación deliberada de campañas de desinformación.</li>
+        <li>Un sistema externo de verificación: en este modelo la corrección «llega» a los difusores de forma instantánea y uniforme, sin procesos de chequeo colectivo.</li>
+        <li>El tiempo real: un «paso» es una abstracción, no equivale a horas ni a días.</li>
+        <li>Las diferencias entre personas (cuánto usan la red, en quién confían, cuán influyentes son) y el contenido o la carga emocional del rumor.</li>
+      </ul>
+      <div class="warn"><strong>Aviso importante.</strong> Este simulador es un modelo simplificado, construido con fines educativos para explorar relaciones entre variables: conectividad, verificación y corrección. Sus resultados no constituyen predicciones del comportamiento real de las personas, no demuestran por sí solos cómo funcionan las redes sociales y no deben interpretarse como hallazgos científicos.</div>
+    </div></div>
+  </section>
+
+</main>
+
+<footer>Simulador educativo · Modelo simplificado con fines de exploración conceptual.<br>Los resultados no constituyen predicciones del comportamiento real. Funciona sin conexión, en un único archivo.</footer>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- utilidades ---------- */
+var $=function(id){return document.getElementById(id);};
+var clamp=function(v,a,b){return Math.max(a,Math.min(b,v));};
+function shuffle(a){for(var i=a.length-1;i>0;i--){var j=Math.floor(Math.random()*(i+1));var t=a[i];a[i]=a[j];a[j]=t;}return a;}
+function rnd(n){return Math.floor(Math.random()*n);}
+
+/* ---------- constantes ---------- */
+var N=80, NOEXP=0, DIF=1, VER=2;
+var C_NOEXP='#9AA8BF', C_DIF='#F2635F', C_VER='#35D39A', C_CORR='#F5B23D';
+var LABEL=['No expuesto','Difusor','Verificado'];
+var MAX_STEPS=200, IDLE_LIMIT=20;
+var REDUCED=!!(window.matchMedia&&window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+
+/* ---------- estado global ---------- */
+var nodes=[], edges=[], adj=[], edgeIndex=new Map();
+var runState='idle'; /* idle | running | paused | finished */
+var step=0, timer=null, speedMs=700, idleStreak=0;
+var params={share:0.7,verify:0.2,k:4,seeds:2};
+var netK=4;
+var corrUsed=false, corrStep=null, corrCount=0;
+var history=[];
+var ripples=[];
+var hoverIdx=-1;
+var netW=0, netH=0, chartW=0, chartH=0;
+
+/* ---------- elementos ---------- */
+var cvNet=$('netCanvas'), cvChart=$('chartCanvas');
+var ctxNet=cvNet.getContext('2d'), ctxChart=cvChart.getContext('2d');
+var tooltip=$('tooltip');
+var ui={};
+['sShare','sVerify','sK','sSeeds','sCorr','oShare','oVerify','oK','oSeeds','oCorr',
+'btnStart','btnPause','btnResume','btnReset','btnNewNet','btnCorrect',
+'statusChip','statusText','statusDot','corrBadge','paramHint',
+'stNoexp','stNoexpPct','stDif','stDifPct','stVer','stVerPct','stExp','stExpAbs','stStep',
+'accBtn','accBody','speedSeg','netWrap','chartWrap'].forEach(function(id){ui[id]=$(id);});
+
+/* ---------- generación de la red ---------- */
+function generateNetwork(k){
+  netK=k;
+  edges=[]; edgeIndex=new Map(); adj=[];
+  for(var i=0;i<N;i++) adj.push([]);
+  function addEdge(a,b){
+    if(a===b) return;
+    var key=a<b ? a+'-'+b : b+'-'+a;
+    if(edgeIndex.has(key)) return;
+    edgeIndex.set(key,edges.length);
+    edges.push({a:a,b:b,flash:0,flashCol:null});
+  }
+  /* árbol de expansión aleatorio: garantiza que no haya nodos aislados */
+  var order=[]; for(var i2=0;i2<N;i2++) order.push(i2);
+  shuffle(order);
+  for(var j=1;j<N;j++) addEdge(order[j], order[rnd(j)]);
+  /* aristas extra hasta alcanzar la conectividad media pedida */
+  var target=Math.round(N*k/2);
+  var guard=N*N;
+  while(edges.length<target && guard-->0) addEdge(rnd(N),rnd(N));
+  for(var e=0;e<edges.length;e++){
+    adj[edges[e].a].push(edges[e].b);
+    adj[edges[e].b].push(edges[e].a);
+  }
+  computeLayout();
+}
+
+/* ---------- layout dirigido por fuerzas (sin bibliotecas) ---------- */
+function computeLayout(){
+  var pts=[];
+  for(var i=0;i<N;i++) pts.push({x:0.5+(Math.random()-0.5)*0.8, y:0.5+(Math.random()-0.5)*0.8});
+  var KR=0.00048, REST=0.115, KA=0.5, GRAV=0.012, temp=0.09;
+  for(var it=0;it<380;it++){
+    var fx=new Float64Array(N), fy=new Float64Array(N);
+    for(var a=0;a<N;a++){
+      for(var b=a+1;b<N;b++){
+        var dx=pts[a].x-pts[b].x, dy=pts[a].y-pts[b].y;
+        var d2=dx*dx+dy*dy;
+        if(d2<1e-8){ dx=(Math.random()-0.5)*1e-3; dy=(Math.random()-0.5)*1e-3; d2=dx*dx+dy*dy; }
+        var d=Math.sqrt(d2), f=KR/d2, ux=dx/d, uy=dy/d;
+        fx[a]+=ux*f; fy[a]+=uy*f; fx[b]-=ux*f; fy[b]-=uy*f;
+      }
+    }
+    for(var e2=0;e2<edges.length;e2++){
+      var A=pts[edges[e2].a], B=pts[edges[e2].b];
+      var ex=B.x-A.x, ey=B.y-A.y;
+      var ed=Math.sqrt(ex*ex+ey*ey)||1e-6, ef=KA*(ed-REST), ux2=ex/ed, uy2=ey/ed;
+      fx[edges[e2].a]+=ux2*ef; fy[edges[e2].a]+=uy2*ef;
+      fx[edges[e2].b]-=ux2*ef; fy[edges[e2].b]-=uy2*ef;
+    }
+    for(var c=0;c<N;c++){
+      fx[c]+=(0.5-pts[c].x)*GRAV; fy[c]+=(0.5-pts[c].y)*GRAV;
+      var m=Math.hypot(fx[c],fy[c])||1e-9;
+      var disp=Math.min(temp,m);
+      pts[c].x=clamp(pts[c].x+fx[c]/m*disp,0.025,0.975);
+      pts[c].y=clamp(pts[c].y+fy[c]/m*disp,0.025,0.975);
+    }
+    temp*=0.982;
+  }
+  nodes=[];
+  for(var n=0;n<N;n++) nodes.push({x:pts[n].x,y:pts[n].y,state:NOEXP,seed:false});
+}
+
+function proj(p){
+  var pad=26;
+  return {x:pad+p.x*(netW-2*pad), y:pad+p.y*(netH-2*pad)};
+}
+function nodeRadius(){ return clamp(Math.min(netW,netH)/46, 6.5, 12); }
+
+function addRipple(i,col){
+  if(REDUCED) return;
+  ripples.push({x:nodes[i].x,y:nodes[i].y,col:col,t0:performance.now()});
+}
+function flashEdge(a,b,col){
+  var key=a<b ? a+'-'+b : b+'-'+a;
+  var idx=edgeIndex.get(key);
+  if(idx!==undefined){ edges[idx].flash=1; edges[idx].flashCol=col; }
+}
+
+/* ---------- conteos e indicadores ---------- */
+function countStates(){
+  var no=0,d=0,v=0;
+  for(var i=0;i<nodes.length;i++){
+    if(nodes[i].state===NOEXP) no++;
+    else if(nodes[i].state===DIF) d++;
+    else v++;
+  }
+  return {no:no,d:d,v:v};
+}
+function updateIndicators(){
+  var c=countStates(), exp=N-c.no;
+  ui.stNoexp.textContent=String(c.no);
+  ui.stNoexpPct.textContent=Math.round(c.no/N*100)+' % de la red';
+  ui.stDif.textContent=String(c.d);
+  ui.stDifPct.textContent=Math.round(c.d/N*100)+' % de la red';
+  ui.stVer.textContent=String(c.v);
+  ui.stVerPct.textContent=Math.round(c.v/N*100)+' % de la red';
+  ui.stExp.textContent=Math.round(exp/N*100)+' %';
+  ui.stExpAbs.textContent=exp+' de '+N+' usuarios';
+  ui.stStep.textContent=String(step);
+  updateCorrectBtn();
+}
+function updateCorrectBtn(){
+  var c=countStates();
+  ui.btnCorrect.disabled = corrUsed || (runState!=='running'&&runState!=='paused') || c.d===0;
+}
+function updateControls(){
+  ui.btnStart.disabled = (runState==='running'||runState==='paused');
+  ui.btnPause.disabled = (runState!=='running');
+  ui.btnResume.disabled = (runState!=='paused');
+  updateCorrectBtn();
+}
+function updateStatus(finReason){
+  ui.statusChip.classList.remove('running','paused','finished');
+  var txt='', dotCol='#93A4BE';
+  if(runState==='running'){ ui.statusChip.classList.add('running'); txt='En ejecución · paso '+step; dotCol=C_VER; }
+  else if(runState==='paused'){ ui.statusChip.classList.add('paused'); txt='En pausa · paso '+step; dotCol=C_CORR; }
+  else if(runState==='finished'){
+    ui.statusChip.classList.add('finished'); dotCol='#4F8DF7';
+    var base='Finalizada · paso '+step+' — ';
+    if(finReason==='no-dif') txt=base+'no quedan difusores activos';
+    else if(finReason==='no-targets') txt=base+'todos los contactos alcanzables ya fueron expuestos';
+    else if(finReason==='idle') txt=base+'con estos parámetros la transmisión dejó de prosperar';
+    else txt=base+'se alcanzó el límite de '+MAX_STEPS+' pasos';
+  } else {
+    txt='Sin iniciar · pulsá «Iniciar»';
+  }
+  ui.statusText.textContent=txt;
+  ui.statusDot.style.background=dotCol;
+}
+
+/* ---------- historial y temporización ---------- */
+function pushHistory(){
+  var c=countStates();
+  var e={step:step,no:c.no,d:c.d,v:c.v};
+  var last=history[history.length-1];
+  if(last && last.step===step) history[history.length-1]=e;
+  else history.push(e);
+}
+function startTimer(){ stopTimer(); timer=setInterval(doStep,speedMs); }
+function stopTimer(){ if(timer){ clearInterval(timer); timer=null; } }
+function anyTargetLeft(){
+  for(var i=0;i<N;i++){
+    if(nodes[i].state!==DIF) continue;
+    var nb=adj[i];
+    for(var j=0;j<nb.length;j++) if(nodes[nb[j]].state===NOEXP) return true;
+  }
+  return false;
+}
+/* ---------- paso de simulación ---------- */
+function doStep(){
+  if(runState!=='running') return;
+  var difs=[];
+  for(var i=0;i<N;i++) if(nodes[i].state===DIF) difs.push(i);
+  if(difs.length===0){ finish('no-dif'); return; }
+  var attempts=[];
+  for(var u=0;u<difs.length;u++){
+    var nb=adj[difs[u]];
+    for(var j=0;j<nb.length;j++) if(nodes[nb[j]].state===NOEXP) attempts.push(difs[u]*1000+nb[j]);
+  }
+  if(attempts.length===0){ finish('no-targets'); return; }
+  shuffle(attempts);
+  var changed=0;
+  for(var a=0;a<attempts.length;a++){
+    var code=attempts[a];
+    var uu=Math.floor(code/1000), vv=code%1000;
+    if(nodes[vv].state!==NOEXP) continue; /* ya expuesto en este paso */
+    var r=Math.random();
+    if(r<params.verify){
+      nodes[vv].state=VER; addRipple(vv,C_VER); flashEdge(uu,vv,C_VER); changed++;
+    } else if(r < params.verify + params.share*(1-params.verify)){
+      nodes[vv].state=DIF; addRipple(vv,C_DIF); flashEdge(uu,vv,C_DIF); changed++;
+    }
+    /* si no prospera: sigue No expuesto y podrá recibir intentos futuros */
+  }
+  step++;
+  idleStreak = (changed===0) ? idleStreak+1 : 0;
+  pushHistory(); updateIndicators(); drawChart(); updateStatus();
+  if(changed===0 && idleStreak>=IDLE_LIMIT){ finish('idle'); return; }
+  if(step>=MAX_STEPS){ finish('max'); return; }
+  if(!anyTargetLeft()) finish('no-targets');
+}
+
+function finish(reason){
+  stopTimer();
+  runState='finished';
+  updateControls(); updateStatus(reason); updateCorrectBtn();
+}
+
+/* ---------- control de ejecución ---------- */
+function startRun(){
+  stopTimer();
+  params={ share:(+ui.sShare.value)/100, verify:(+ui.sVerify.value)/100, k:+ui.sK.value, seeds:+ui.sSeeds.value };
+  if(params.k!==netK) generateNetwork(params.k);
+  for(var i=0;i<nodes.length;i++){ nodes[i].state=NOEXP; nodes[i].seed=false; }
+  for(var e=0;e<edges.length;e++) edges[e].flash=0;
+  ripples.length=0;
+  corrUsed=false; corrStep=null; corrCount=0; hideCorrBadge();
+  step=0; idleStreak=0; history=[];
+  var idx=[]; for(var n=0;n<N;n++) idx.push(n);
+  shuffle(idx);
+  for(var s=0;s<params.seeds;s++){ nodes[idx[s]].state=DIF; nodes[idx[s]].seed=true; }
+  pushHistory(); updateIndicators(); drawChart(); hideParamHint();
+  runState='running'; startTimer(); updateControls(); updateStatus();
+}
+function pauseRun(){
+  if(runState!=='running') return;
+  stopTimer(); runState='paused';
+  updateControls(); updateStatus();
+}
+function resumeRun(){
+  if(runState!=='paused') return;
+  runState='running'; startTimer();
+  updateControls(); updateStatus();
+}
+function resetRun(customMsg){
+  stopTimer();
+  if(+ui.sK.value!==netK) generateNetwork(+ui.sK.value);
+  for(var i=0;i<nodes.length;i++){ nodes[i].state=NOEXP; nodes[i].seed=false; }
+  for(var e=0;e<edges.length;e++) edges[e].flash=0;
+  ripples.length=0;
+  corrUsed=false; corrStep=null; corrCount=0; hideCorrBadge();
+  step=0; idleStreak=0; history=[];
+  runState='idle';
+  updateIndicators(); drawChart(); hideParamHint(); updateControls(); updateStatus();
+  if(customMsg) ui.statusText.textContent=customMsg;
+}
+function newNetwork(){
+  generateNetwork(+ui.sK.value);
+  resetRun('Nueva red generada · pulsá «Iniciar»');
+}
+
+/* ---------- intervención de corrección ---------- */
+function applyCorrection(){
+  if(corrUsed || (runState!=='running'&&runState!=='paused')) return;
+  var difs=[];
+  for(var i=0;i<N;i++) if(nodes[i].state===DIF) difs.push(i);
+  if(difs.length===0) return;
+  var scope=(+ui.sCorr.value)/100;
+  var count=clamp(Math.round(difs.length*scope),0,difs.length);
+  shuffle(difs);
+  for(var s=0;s<count;s++){ nodes[difs[s]].state=VER; addRipple(difs[s],C_CORR); }
+  corrUsed=true; corrStep=step; corrCount=count;
+  ui.corrBadge.textContent='Corrección activada en el paso '+step+' · '+count+(count===1?' difusor verificado':' difusores verificados');
+  ui.corrBadge.classList.remove('hidden');
+  pushHistory(); updateIndicators(); drawChart(); updateCorrectBtn();
+  var c=countStates();
+  if(c.d===0) finish('no-dif');
+  else if(!anyTargetLeft()) finish('no-targets');
+}
+function hideCorrBadge(){ ui.corrBadge.classList.add('hidden'); ui.corrBadge.textContent=''; }
+
+/* ---------- deslizadores ---------- */
+function paintRange(el){
+  var min=+el.min, max=+el.max, v=+el.value;
+  var p=((v-min)/(max-min))*100;
+  var row=el.closest('.slider-row');
+  var ac=row ? getComputedStyle(row).getPropertyValue('--ac').trim() : '#4F8DF7';
+  el.style.background='linear-gradient(90deg, '+ac+' 0%, '+ac+' '+p+'%, #263349 '+p+'%, #263349 100%)';
+}
+function refreshOutputs(){
+  ui.oShare.textContent=ui.sShare.value+' %';
+  ui.oVerify.textContent=ui.sVerify.value+' %';
+  ui.oK.textContent=ui.sK.value+' contactos';
+  ui.oSeeds.textContent=ui.sSeeds.value+(+ui.sSeeds.value===1?' usuario':' usuarios');
+  ui.oCorr.textContent=ui.sCorr.value+' %';
+}
+function checkParamHint(){
+  var changed = ((+ui.sShare.value)/100!==params.share) ||
+                ((+ui.sVerify.value)/100!==params.verify) ||
+                (+ui.sK.value!==params.k) ||
+                (+ui.sSeeds.value!==params.seeds);
+  ui.paramHint.classList.toggle('show', changed && runState!=='idle');
+}
+function hideParamHint(){ ui.paramHint.classList.remove('show'); }
+/* ---------- dibujo de la red ---------- */
+var lastFrame=performance.now();
+function frame(now){
+  var dt=Math.min(64, now-lastFrame);
+  lastFrame=now;
+  drawNet(now,dt);
+  requestAnimationFrame(frame);
+}
+function drawNet(now,dt){
+  ctxNet.clearRect(0,0,netW,netH);
+  if(netW<10||netH<10||!nodes.length) return;
+  var r=nodeRadius(), i, e, p, q;
+  /* aristas base */
+  ctxNet.lineWidth=1;
+  ctxNet.strokeStyle='rgba(148,163,184,0.16)';
+  ctxNet.beginPath();
+  for(i=0;i<edges.length;i++){
+    p=proj(nodes[edges[i].a]); q=proj(nodes[edges[i].b]);
+    ctxNet.moveTo(p.x,p.y); ctxNet.lineTo(q.x,q.y);
+  }
+  ctxNet.stroke();
+  /* destellos de transmisión */
+  for(i=0;i<edges.length;i++){
+    e=edges[i];
+    if(e.flash>0){
+      e.flash-=dt*0.0022;
+      if(e.flash<=0){ e.flash=0; continue; }
+      p=proj(nodes[e.a]); q=proj(nodes[e.b]);
+      ctxNet.globalAlpha=Math.min(1,e.flash);
+      ctxNet.strokeStyle=e.flashCol;
+      ctxNet.lineWidth=2;
+      ctxNet.beginPath(); ctxNet.moveTo(p.x,p.y); ctxNet.lineTo(q.x,q.y); ctxNet.stroke();
+    }
+  }
+  ctxNet.globalAlpha=1;
+  /* nodos por capas: no expuestos debajo, difusores arriba */
+  var layers=[NOEXP,VER,DIF];
+  for(var l=0;l<layers.length;l++){
+    var st=layers[l];
+    for(i=0;i<N;i++){
+      var n=nodes[i];
+      if(n.state!==st) continue;
+      p=proj(n);
+      if(st===DIF){
+        var pulse=REDUCED?0:(Math.sin(now/280+i)*1.5+1.5);
+        ctxNet.shadowColor='rgba(242,99,95,0.85)';
+        ctxNet.shadowBlur=10+pulse;
+      } else {
+        ctxNet.shadowBlur=0;
+      }
+      ctxNet.beginPath();
+      ctxNet.arc(p.x,p.y, st===NOEXP? r*0.82 : (st===VER? r*0.92 : r), 0, Math.PI*2);
+      ctxNet.fillStyle = st===NOEXP? '#5B6B85' : (st===VER? '#2CA97D' : '#F2635F');
+      ctxNet.fill();
+      ctxNet.shadowBlur=0;
+      ctxNet.strokeStyle = st===NOEXP? 'rgba(154,168,191,.55)' : (st===VER? 'rgba(53,211,154,.75)' : 'rgba(255,158,155,.85)');
+      ctxNet.lineWidth=1;
+      ctxNet.stroke();
+      if(n.seed){
+        ctxNet.beginPath();
+        ctxNet.setLineDash([4.5,3.5]);
+        if(!REDUCED) ctxNet.lineDashOffset=-((now/40)%8);
+        ctxNet.strokeStyle=C_CORR;
+        ctxNet.lineWidth=1.8;
+        ctxNet.arc(p.x,p.y,r+4.2,0,Math.PI*2);
+        ctxNet.stroke();
+        ctxNet.setLineDash([]);
+      }
+      if(i===hoverIdx){
+        ctxNet.beginPath();
+        ctxNet.arc(p.x,p.y,r+2.5,0,Math.PI*2);
+        ctxNet.strokeStyle='rgba(231,238,249,.9)';
+        ctxNet.lineWidth=1.5;
+        ctxNet.stroke();
+      }
+    }
+  }
+  /* ondas de cambio de estado */
+  for(i=ripples.length-1;i>=0;i--){
+    var rp=ripples[i];
+    var t=(now-rp.t0)/850;
+    if(t>=1){ ripples.splice(i,1); continue; }
+    p=proj(rp);
+    ctxNet.beginPath();
+    ctxNet.arc(p.x,p.y,r+4+t*30,0,Math.PI*2);
+    ctxNet.globalAlpha=(1-t)*0.75;
+    ctxNet.strokeStyle=rp.col;
+    ctxNet.lineWidth=2;
+    ctxNet.stroke();
+  }
+  ctxNet.globalAlpha=1;
+}
+
+/* ---------- gráfico temporal ---------- */
+function drawChart(){
+  var w=chartW, h=chartH;
+  if(w<10||h<10) return;
+  var ctx=ctxChart;
+  ctx.clearRect(0,0,w,h);
+  var mL=38, mR=14, mT=14, mB=26;
+  var iw=w-mL-mR, ih=h-mT-mB;
+  var ymax=N;
+  var xmax=Math.max(10, history.length? history[history.length-1].step : 0);
+  var fontSys='system-ui,-apple-system,"Segoe UI",Roboto,sans-serif';
+  ctx.font='10.5px '+fontSys;
+  /* grilla horizontal + etiquetas Y */
+  var yv, y;
+  ctx.textAlign='right'; ctx.textBaseline='middle';
+  for(yv=0;yv<=ymax;yv+=20){
+    y=mT+ih-(yv/ymax)*ih;
+    ctx.strokeStyle = yv===0? 'rgba(148,163,184,.35)' : 'rgba(148,163,184,.12)';
+    ctx.beginPath(); ctx.moveTo(mL,y); ctx.lineTo(mL+iw,y); ctx.stroke();
+    ctx.fillStyle='#7E90AA';
+    ctx.fillText(String(yv), mL-7, y);
+  }
+  /* grilla vertical + etiquetas X */
+  var stp=1, s;
+  for(var si=0;si<7;si++){
+    s=[1,2,5,10,20,50,100][si];
+    if(xmax/s<=9){ stp=s; break; }
+  }
+  var xv, x;
+  ctx.textAlign='center'; ctx.textBaseline='top';
+  for(xv=0;xv<=xmax;xv+=stp){
+    x=mL+(xv/xmax)*iw;
+    ctx.strokeStyle='rgba(148,163,184,.10)';
+    ctx.beginPath(); ctx.moveTo(x,mT); ctx.lineTo(x,mT+ih); ctx.stroke();
+    ctx.fillStyle='#7E90AA';
+    ctx.fillText(String(xv), x, mT+ih+7);
+  }
+  if(!history.length){
+    ctx.fillStyle='#6C7E9B';
+    ctx.textAlign='center'; ctx.textBaseline='middle';
+    ctx.font='13px '+fontSys;
+    ctx.fillText('Iniciá la simulación para ver la evolución', mL+iw/2, mT+ih/2);
+    return;
+  }
+  /* marcador de corrección */
+  if(corrStep!==null && corrStep<=xmax){
+    x=mL+(corrStep/xmax)*iw;
+    ctx.strokeStyle='rgba(245,178,61,.8)';
+    ctx.setLineDash([5,4]);
+    ctx.lineWidth=1.4;
+    ctx.beginPath(); ctx.moveTo(x,mT); ctx.lineTo(x,mT+ih); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle=C_CORR;
+    ctx.textAlign='left'; ctx.textBaseline='top';
+    ctx.font='10.5px '+fontSys;
+    ctx.fillText('corrección', Math.min(x+5, mL+iw-56), mT+2);
+  }
+  /* series */
+  var series=[['no',C_NOEXP],['d',C_DIF],['v',C_VER]];
+  var k, pt, i;
+  ctx.lineWidth=2; ctx.lineJoin='round'; ctx.lineCap='round';
+  for(k=0;k<series.length;k++){
+    ctx.beginPath();
+    for(i=0;i<history.length;i++){
+      pt=history[i];
+      x=mL+(pt.step/xmax)*iw;
+      y=mT+ih-(pt[series[k][0]]/ymax)*ih;
+      if(i===0) ctx.moveTo(x,y); else ctx.lineTo(x,y);
+    }
+    ctx.strokeStyle=series[k][1];
+    ctx.stroke();
+  }
+  /* punto final de cada serie */
+  var last=history[history.length-1];
+  for(k=0;k<series.length;k++){
+    x=mL+(last.step/xmax)*iw;
+    y=mT+ih-(last[series[k][0]]/ymax)*ih;
+    ctx.beginPath();
+    ctx.arc(x,y,3,0,Math.PI*2);
+    ctx.fillStyle=series[k][1];
+    ctx.fill();
+  }
+}
+
+/* ---------- interacción con la red ---------- */
+function pickNode(x,y){
+  var r=nodeRadius()+7, best=-1, bd=r*r;
+  for(var i=0;i<N;i++){
+    var p=proj(nodes[i]);
+    var dx=p.x-x, dy=p.y-y, d=dx*dx+dy*dy;
+    if(d<bd){ bd=d; best=i; }
+  }
+  return best;
+}
+cvNet.addEventListener('mousemove',function(ev){
+  var rect=cvNet.getBoundingClientRect();
+  var x=ev.clientX-rect.left, y=ev.clientY-rect.top;
+  hoverIdx=pickNode(x,y);
+  if(hoverIdx>=0){
+    var n=nodes[hoverIdx];
+    tooltip.textContent='Usuario '+(hoverIdx+1)+' · '+LABEL[n.state]+(n.seed?' · difusor inicial':'');
+    tooltip.classList.remove('hidden');
+    tooltip.style.left=clamp(x,72,Math.max(72,netW-72))+'px';
+    tooltip.style.top=y+'px';
+    cvNet.style.cursor='pointer';
+  } else {
+    tooltip.classList.add('hidden');
+    cvNet.style.cursor='default';
+  }
+});
+cvNet.addEventListener('mouseleave',function(){
+  hoverIdx=-1;
+  tooltip.classList.add('hidden');
+  cvNet.style.cursor='default';
+});
+
+/* ---------- dimensionado de lienzos ---------- */
+function sizeCanvases(){
+  var dpr=window.devicePixelRatio||1;
+  var r1=cvNet.getBoundingClientRect();
+  netW=r1.width; netH=r1.height;
+  cvNet.width=Math.max(1,Math.round(netW*dpr));
+  cvNet.height=Math.max(1,Math.round(netH*dpr));
+  ctxNet.setTransform(dpr,0,0,dpr,0,0);
+  var r2=cvChart.getBoundingClientRect();
+  chartW=r2.width; chartH=r2.height;
+  cvChart.width=Math.max(1,Math.round(chartW*dpr));
+  cvChart.height=Math.max(1,Math.round(chartH*dpr));
+  ctxChart.setTransform(dpr,0,0,dpr,0,0);
+  drawChart();
+}
+
+/* ---------- eventos ---------- */
+ui.btnStart.addEventListener('click',startRun);
+ui.btnPause.addEventListener('click',pauseRun);
+ui.btnResume.addEventListener('click',resumeRun);
+ui.btnReset.addEventListener('click',function(){ resetRun(); });
+ui.btnNewNet.addEventListener('click',newNetwork);
+ui.btnCorrect.addEventListener('click',applyCorrection);
+
+ui.sShare.addEventListener('input',function(){ paintRange(ui.sShare); refreshOutputs(); checkParamHint(); });
+ui.sVerify.addEventListener('input',function(){ paintRange(ui.sVerify); refreshOutputs(); checkParamHint(); });
+ui.sSeeds.addEventListener('input',function(){ paintRange(ui.sSeeds); refreshOutputs(); checkParamHint(); });
+ui.sK.addEventListener('input',function(){
+  paintRange(ui.sK); refreshOutputs();
+  if(runState==='idle' && +ui.sK.value!==netK) generateNetwork(+ui.sK.value);
+  checkParamHint();
+});
+ui.sCorr.addEventListener('input',function(){ paintRange(ui.sCorr); refreshOutputs(); });
+
+ui.speedSeg.addEventListener('click',function(ev){
+  var b=ev.target.closest('button');
+  if(!b) return;
+  speedMs=+b.dataset.ms;
+  Array.prototype.forEach.call(ui.speedSeg.children,function(x){ x.classList.toggle('active',x===b); });
+  if(runState==='running') startTimer();
+});
+
+ui.accBtn.addEventListener('click',function(){
+  var open=ui.accBtn.classList.contains('open');
+  if(open){
+    ui.accBody.style.maxHeight='0px';
+    ui.accBtn.classList.remove('open');
+    ui.accBtn.setAttribute('aria-expanded','false');
+  } else {
+    ui.accBody.style.maxHeight=ui.accBody.scrollHeight+'px';
+    ui.accBtn.classList.add('open');
+    ui.accBtn.setAttribute('aria-expanded','true');
+  }
+});
+
+window.addEventListener('resize',function(){
+  if(ui.accBtn.classList.contains('open')) ui.accBody.style.maxHeight=ui.accBody.scrollHeight+'px';
+});
+
+if('ResizeObserver' in window){
+  var ro=new ResizeObserver(function(){ sizeCanvases(); });
+  ro.observe(ui.netWrap);
+  ro.observe(ui.chartWrap);
+} else {
+  window.addEventListener('resize',sizeCanvases);
+}
+
+/* ---------- inicialización ---------- */
+function init(){
+  generateNetwork(+ui.sK.value);
+  refreshOutputs();
+  paintRange(ui.sShare); paintRange(ui.sVerify); paintRange(ui.sK); paintRange(ui.sSeeds); paintRange(ui.sCorr);
+  sizeCanvases();
+  updateIndicators(); updateControls(); updateStatus();
+  requestAnimationFrame(function(ts){ lastFrame=ts; requestAnimationFrame(frame); });
+}
+init();
+})();
+</script>
+</body>
+</html>
